@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+backend/venv/
+backend/media/
+backend/staticfiles/
+backend/audit-checkpoint/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Local configuration and editor files
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/

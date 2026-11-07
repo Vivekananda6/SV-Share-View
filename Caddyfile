@@ -1,0 +1,16 @@
+{$DOMAIN} {
+    encode zstd gzip
+    log {
+        output stdout
+        format json
+    }
+
+    @django path /api /api/* /admin /admin/* /static /static/* /media /media/*
+    handle @django {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+}
