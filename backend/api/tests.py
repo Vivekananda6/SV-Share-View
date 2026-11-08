@@ -960,6 +960,79 @@ class SecureFileApiTests(TestCase):
         self.assertIn("portal-staff", {row["username"] for row in response.data["users"]})
         self.assertEqual(staff_client.get("/api/admin/audit/").status_code, 200)
 
+    def test_admin_can_update_regular_user_profile_with_auditing_and_role_guards(self):
+        target = User.objects.create_user(username="profile-target", email="old@example.test")
+        staff_user = User.objects.create_user(username="profile-admin", is_staff=True)
+        staff_client = APIClient()
+        staff_client.force_authenticate(user=staff_user)
+
+        overview = staff_client.get("/api/admin/overview/")
+        target_row = next(row for row in overview.data["users"] if row["id"] == target.pk)
+        self.assertEqual(target_row["first_name"], "")
+        self.assertEqual(target_row["last_name"], "")
+
+        response = staff_client.patch(
+            f"/api/admin/users/{target.pk}/profile/",
+            {
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "email": "ada@example.test",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        target.refresh_from_db()
+        self.assertEqual(target.first_name, "Ada")
+        self.assertEqual(target.last_name, "Lovelace")
+        self.assertEqual(target.email, "ada@example.test")
+        self.assertEqual(response.data["username"], target.username)
+
+        audit_event = AuditLog.objects.get(action="Admin User Profile Updated")
+        self.assertEqual(audit_event.user, staff_user)
+        self.assertIn(f"Target account ID: {target.pk}", audit_event.details)
+        self.assertIn("first_name, last_name, email", audit_event.details)
+        self.assertNotIn("ada@example.test", audit_event.details)
+
+        forbidden_update = staff_client.patch(
+            f"/api/admin/users/{target.pk}/profile/",
+            {"is_staff": True},
+            format="json",
+        )
+        self.assertEqual(forbidden_update.status_code, 400)
+        target.refresh_from_db()
+        self.assertFalse(target.is_staff)
+
+        empty_update = staff_client.patch(
+            f"/api/admin/users/{target.pk}/profile/",
+            {},
+            format="json",
+        )
+        self.assertEqual(empty_update.status_code, 400)
+
+        other_admin = User.objects.create_user(
+            username="protected-profile-admin",
+            email="admin@example.test",
+            is_superuser=True,
+        )
+        protected_update = staff_client.patch(
+            f"/api/admin/users/{other_admin.pk}/profile/",
+            {"email": "changed@example.test"},
+            format="json",
+        )
+        self.assertEqual(protected_update.status_code, 400)
+        other_admin.refresh_from_db()
+        self.assertEqual(other_admin.email, "admin@example.test")
+
+        self.client.force_authenticate(user=target)
+        self.assertEqual(
+            self.client.patch(
+                f"/api/admin/users/{target.pk}/profile/",
+                {"email": "unauthorized@example.test"},
+                format="json",
+            ).status_code,
+            403,
+        )
+
     def test_staff_can_manage_every_document_and_revoke_any_share(self):
         owner = User.objects.create_user(username="document-owner")
         recipient = User.objects.create_user(username="document-recipient")

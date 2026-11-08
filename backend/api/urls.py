@@ -6,6 +6,7 @@ from .views import (
     AdminAuditView,
     AdminOverviewView,
     AdminUserActionView,
+    AdminUserProfileView,
     ActivitySummaryView,
     AdminDocumentListView,
     AdminDocumentDetailView,
@@ -55,6 +56,11 @@ urlpatterns = [
         'admin/shares/<int:pk>/action/',
         AdminShareActionView.as_view(),
         name='admin-share-action',
+    ),
+    path(
+        'admin/users/<int:pk>/profile/',
+        AdminUserProfileView.as_view(),
+        name='admin-user-profile',
     ),
     path(
         'admin/users/<int:pk>/action/',

@@ -311,6 +311,25 @@ class AdminModerationActionSerializer(serializers.Serializer):
         return attrs
 
 
+class AdminUserProfileSerializer(serializers.Serializer):
+    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    email = serializers.EmailField(required=False, allow_blank=True, max_length=254)
+
+    def validate(self, attrs):
+        unknown_fields = set(self.initial_data) - set(self.fields)
+        if unknown_fields:
+            raise serializers.ValidationError({
+                field: 'This profile field cannot be changed here.'
+                for field in sorted(unknown_fields)
+            })
+        if not attrs:
+            raise serializers.ValidationError(
+                'Provide at least one profile field to update.'
+            )
+        return attrs
+
+
 class AdminSecureFileSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source='user.username', read_only=True)
     has_passcode = serializers.SerializerMethodField()

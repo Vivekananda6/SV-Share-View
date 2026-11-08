@@ -51,6 +51,7 @@ from .models import (
 from .serializers import (
     AuditLogSerializer,
     AdminModerationActionSerializer,
+    AdminUserProfileSerializer,
     FileShareCreateSerializer,
     FileShareSerializer,
     FilePasscodeSerializer,
@@ -295,6 +296,8 @@ class AdminOverviewView(APIView):
             accounts.append({
                 'id': user.pk,
                 'username': user.get_username(),
+                'first_name': user.first_name,
+                'last_name': user.last_name,
                 'email': user.email,
                 'date_joined': user.date_joined,
                 'last_login': user.last_login,
@@ -332,6 +335,51 @@ class AdminOverviewView(APIView):
             'users_page': page,
             'users_page_count': user_page_count,
             'users_count': user_count,
+        })
+
+
+class AdminUserProfileView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        try:
+            target = User.objects.select_for_update().get(pk=pk)
+        except User.DoesNotExist as exc:
+            raise NotFound('Account not found.') from exc
+
+        if target.is_staff or target.is_superuser:
+            raise ValidationError(
+                {'user': 'Admin profiles are protected from profile edits.'}
+            )
+
+        serializer = AdminUserProfileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updates = serializer.validated_data
+        changed_fields = [
+            field for field, value in updates.items()
+            if getattr(target, field) != value
+        ]
+        if changed_fields:
+            for field in changed_fields:
+                setattr(target, field, updates[field])
+            target.save(update_fields=changed_fields)
+            record_audit(
+                request,
+                'Admin User Profile Updated',
+                actor_user=request.user,
+                details=(
+                    f'Target account ID: {target.pk}; updated fields: '
+                    f'{", ".join(changed_fields)}.'
+                ),
+            )
+
+        return Response({
+            'id': target.pk,
+            'username': target.get_username(),
+            'first_name': target.first_name,
+            'last_name': target.last_name,
+            'email': target.email,
         })
 
 

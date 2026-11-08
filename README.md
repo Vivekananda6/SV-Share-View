@@ -18,7 +18,7 @@ Every user must sign in. Documents and search results are scoped to the signed-i
 
 | Role | Capabilities |
 | --- | --- |
-| Administrator (staff) | Use the SV portal to review all documents and shares, download and replace file contents, edit metadata, revoke recipient grants, delete documents, search/paginate accounts, issue warnings, time out or block/unblock non-admin accounts, and review platform audit activity. Administrator access bypasses owner and recipient PIN checks; every document-management action is recorded. |
+| Administrator (staff) | Use the SV portal to review all documents and shares, download and replace file contents, edit metadata, revoke recipient grants, delete documents, search/paginate accounts, edit regular users' display names and email, issue warnings, time out or block/unblock non-admin accounts, and review platform audit activity. Username, password, status, and administrator permissions are not changed through the profile editor. Administrator access bypasses owner and recipient PIN checks; document and profile-management actions are recorded. |
 | Superuser | Has staff capabilities and can access Django Admin for additional database-level management. |
 | Document owner | Upload, categorize, rename, search, download, and delete their own documents; grant or revoke named users' view/edit shares; set and manage each document's PIN. |
 | Viewer (recipient with View) | View shared document metadata and download it after entering the document PIN. Cannot edit, replace, delete, or reshare the owner's document. |
@@ -169,6 +169,16 @@ set `MEDIA_ROOT` and `AUDIT_CHECKPOINT_PATH` to locations on its mount. After
 deployment, check Render **Events** and **Logs**, then verify `/api/account/`
 returns `401` when unauthenticated (not a timeout).
 
+To create the first administrator in Render's PostgreSQL database, use the
+backend service's Shell (when available) and run the existing
+`python manage.py bootstrap_admin` command. The command needs temporary
+`SV_ADMIN_USERNAME`, `SV_ADMIN_EMAIL`, and `SV_ADMIN_PASSWORD` environment
+variables. Add them only in the Render dashboard, run the command once, then
+remove those three variables. Do not put credentials in Git, a frontend build
+variable, or a chat message. If the service plan does not provide Shell, use a
+one-off job with the same backend image and database environment; do not
+replace the web service's normal Docker start command.
+
 Existing files from before the encryption update are marked **Legacy plaintext** and remain downloadable for compatibility; upload them again to store an encrypted copy. New files are encrypted before being written to storage. File data is never served through a public media URL.
 
 ### Single-server HTTPS deployment with Docker
@@ -193,7 +203,7 @@ The included Compose setup runs PostgreSQL, Django/Gunicorn, the built React app
    ```
 
    The backend applies migrations and collects Django admin static files at startup. Caddy obtains and renews the HTTPS certificate after the domain resolves publicly.
-4. Create the initial administrator using the backend container. Choose a unique password; SV does not ship with a predefined administrator username or password. In PowerShell, enter the credentials into the current session, then create the account:
+4. Create the initial administrator using the backend container. Choose a unique password; SV does not ship with a predefined administrator username or password. For a Render-hosted service, follow the Render Shell instructions above. For this Docker Compose deployment, in PowerShell, enter the credentials into the current session, then create the account:
 
    ```powershell
    $env:SV_ADMIN_USERNAME = Read-Host "Administrator username"

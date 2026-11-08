@@ -288,6 +288,15 @@
 .admin-table td:first-child span { margin-top: 3px; color: #9CA3AF; font-size: 11px; }
 .admin-table td:first-child .admin-role { display: inline-block; margin: 5px 5px 0 0; color: #93C5FD; }
 .admin-table td .admin-last-note { max-width: 220px; overflow-wrap: anywhere; }
+.admin-profile-cell { display: flex; min-width: 190px; align-items: flex-start; gap: 9px; }
+.admin-profile-cell > div { min-width: 0; }
+.admin-avatar { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(96, 165, 250, 0.28); border-radius: 50%; color: #BFDBFE; background: rgba(59, 130, 246, 0.14); font-size: 11px; font-weight: 750; }
+.admin-profile-cell .admin-profile-edit { min-height: 25px; margin-top: 6px; padding: 0 7px; color: #93C5FD; font-size: 10px; }
+.admin-profile-edit-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+.admin-profile-edit-form > label { display: grid; min-width: 150px; flex: 1; gap: 5px; color: #9CA3AF; font-size: 11px; }
+.admin-profile-edit-form input { min-height: 38px; border: 1px solid #30343D; border-radius: 8px; padding: 0 10px; color: #F3F4F6; background: #0F1115; }
+.admin-profile-edit-actions { display: flex; gap: 7px; }
+.admin-profile-help { flex-basis: 100%; margin: 0; color: #6B7280; font-size: 10px; line-height: 1.5; }
 .admin-badge { display: inline-block; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 700; text-transform: capitalize; }
 .badge-active { color: #10B981; background: rgba(16, 185, 129, 0.12); }
 .badge-blocked { color: #EF4444; background: rgba(239, 68, 68, 0.12); }

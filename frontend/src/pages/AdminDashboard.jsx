@@ -28,6 +28,7 @@ const AdminDashboard = ({ onLogout }) => {
     const [documentPage, setDocumentPage] = useState(1);
     const [expandedDocument, setExpandedDocument] = useState(null);
     const [editingDocument, setEditingDocument] = useState(null);
+    const [editingProfile, setEditingProfile] = useState(null);
     const [duration, setDuration] = useState('60');
     const [note, setNote] = useState('');
     const [busyUser, setBusyUser] = useState(null);
@@ -111,6 +112,32 @@ const AdminDashboard = ({ onLogout }) => {
                 || Object.values(responseData || {}).flat().join(' ')
                 || 'The moderation action could not be completed.';
             setError(typeof message === 'string' ? message : 'The moderation action could not be completed.');
+        } finally {
+            setBusyUser(null);
+        }
+    };
+
+    const handleProfileSave = async (event) => {
+        event.preventDefault();
+        if (!editingProfile) return;
+        setBusyUser(editingProfile.id);
+        setError('');
+        setNotice('');
+        try {
+            await api.patch(`admin/users/${editingProfile.id}/profile/`, {
+                first_name: editingProfile.first_name,
+                last_name: editingProfile.last_name,
+                email: editingProfile.email,
+            });
+            setNotice(`Updated profile for ${editingProfile.username}.`);
+            setEditingProfile(null);
+            await loadData();
+        } catch (requestError) {
+            const responseData = requestError.response?.data;
+            const message = responseData?.detail
+                || Object.values(responseData || {}).flat().join(' ')
+                || 'Could not update the account profile.';
+            setError(typeof message === 'string' ? message : 'Could not update the account profile.');
         } finally {
             setBusyUser(null);
         }
@@ -485,6 +512,7 @@ const AdminDashboard = ({ onLogout }) => {
                         <thead>
                             <tr>
                                 <th>Account</th>
+                                <th>Profile</th>
                                 <th>Status</th>
                                 <th>Warnings</th>
                                 <th>Documents</th>
@@ -495,12 +523,50 @@ const AdminDashboard = ({ onLogout }) => {
                         </thead>
                         <tbody>
                             {overview.users.map((user) => (
-                                <tr key={user.id}>
+                                <Fragment key={user.id}>
+                                <tr>
                                     <td>
                                         <strong>{user.username}</strong>
-                                        <span>{user.email || 'No email set'}</span>
                                         {user.is_staff && <span className="admin-role">Staff</span>}
                                         {user.is_superuser && <span className="admin-role">Superuser</span>}
+                                    </td>
+                                    <td>
+                                        <div className="admin-profile-cell">
+                                            <span className="admin-avatar" aria-hidden="true">
+                                                {[user.first_name, user.last_name]
+                                                    .filter(Boolean)
+                                                    .map((name) => name[0])
+                                                    .join('')
+                                                    .toUpperCase() || user.username.slice(0, 2).toUpperCase()}
+                                            </span>
+                                            <div>
+                                                <strong>{[user.first_name, user.last_name].filter(Boolean).join(' ') || 'No display name'}</strong>
+                                                <span>{user.email || 'No email set'}</span>
+                                                {user.protected_admin ? (
+                                                    <span className="admin-protected">Protected admin profile</span>
+                                                ) : (
+                                                    <button
+                                                        className="admin-profile-edit"
+                                                        type="button"
+                                                        disabled={busyUser === user.id}
+                                                        aria-expanded={editingProfile?.id === user.id}
+                                                        onClick={() => setEditingProfile(
+                                                            editingProfile?.id === user.id
+                                                                ? null
+                                                                : {
+                                                                    id: user.id,
+                                                                    username: user.username,
+                                                                    first_name: user.first_name || '',
+                                                                    last_name: user.last_name || '',
+                                                                    email: user.email || '',
+                                                                },
+                                                        )}
+                                                    >
+                                                        {editingProfile?.id === user.id ? 'Close editor' : 'Edit profile'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>
                                         <span className={`admin-badge ${user.is_active ? 'badge-active' : 'badge-blocked'}`}>
@@ -534,9 +600,55 @@ const AdminDashboard = ({ onLogout }) => {
                                         )}
                                     </td>
                                 </tr>
+                                {editingProfile?.id === user.id && (
+                                    <tr className="admin-detail-row" key={`profile-${user.id}`}>
+                                        <td colSpan="8">
+                                            <form className="admin-profile-edit-form" onSubmit={handleProfileSave}>
+                                                <label>
+                                                    First name
+                                                    <input
+                                                        autoComplete="off"
+                                                        maxLength="150"
+                                                        value={editingProfile.first_name}
+                                                        onChange={(event) => setEditingProfile({ ...editingProfile, first_name: event.target.value })}
+                                                    />
+                                                </label>
+                                                <label>
+                                                    Last name
+                                                    <input
+                                                        autoComplete="off"
+                                                        maxLength="150"
+                                                        value={editingProfile.last_name}
+                                                        onChange={(event) => setEditingProfile({ ...editingProfile, last_name: event.target.value })}
+                                                    />
+                                                </label>
+                                                <label>
+                                                    Email
+                                                    <input
+                                                        type="email"
+                                                        autoComplete="off"
+                                                        maxLength="254"
+                                                        value={editingProfile.email}
+                                                        onChange={(event) => setEditingProfile({ ...editingProfile, email: event.target.value })}
+                                                    />
+                                                </label>
+                                                <div className="admin-profile-edit-actions">
+                                                    <button className="admin-button admin-primary" type="submit" disabled={busyUser === user.id}>
+                                                        {busyUser === user.id ? 'Saving…' : 'Save profile'}
+                                                    </button>
+                                                    <button className="admin-button" type="button" disabled={busyUser === user.id} onClick={() => setEditingProfile(null)}>
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                                <p className="admin-profile-help">Username, password, account status, and administrator permissions are not editable here. Changes are recorded in the audit trail.</p>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                )}
+                                </Fragment>
                             ))}
                             {!loading && overview.users.length === 0 && (
-                                <tr><td className="admin-empty" colSpan="7">No accounts matched the search.</td></tr>
+                                <tr><td className="admin-empty" colSpan="8">No accounts matched the search.</td></tr>
                             )}
                         </tbody>
                     </table>
