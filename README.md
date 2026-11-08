@@ -127,6 +127,37 @@ SQLite is the default and is suitable for a single server with local persistent 
 
 For production, set `DJANGO_DEBUG=false`, a unique `DJANGO_SECRET_KEY`, `FILE_ENCRYPTION_KEY`, and comma-separated `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and (for the Django admin over HTTPS) `CSRF_TRUSTED_ORIGINS`; serve the site and API over HTTPS. Set `DJANGO_SECURE_SSL_REDIRECT=false` only when HTTPS is terminated by a trusted reverse proxy that handles redirects itself. Enable `SECURE_HSTS_INCLUDE_SUBDOMAINS` or `SECURE_HSTS_PRELOAD` only if every affected subdomain is permanently HTTPS-only. Use persistent storage for uploaded files and audit checkpoints; ephemeral hosted filesystems will lose data on restart/redeploy. Keep the same encryption key across all application instances. Back up the database, encrypted file storage, audit checkpoint, and encryption/audit keys together.
 
+### Deploy the backend to Render
+
+For a Render **Python Web Service** serving this repository's backend, select
+the `main` branch and set **Root Directory** to `backend`. Configure:
+
+- **Build Command:** `pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput`
+- **Start Command:** `gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
+
+Set these environment variable names in the Render service (enter secret
+values in Render only):
+
+| Variable | Configuration |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection URL; prefer the database's internal URL when hosted in the same Render region. |
+| `DJANGO_DEBUG` | `false`; a variable named `DEBUG` is not read by this project. |
+| `DJANGO_SECRET_KEY` | Unique high-entropy Django secret. The application does not read a variable named `SECRET_KEY`. |
+| `FILE_ENCRYPTION_KEY` | URL-safe base64 key decoding to exactly 32 bytes. Keep it unchanged for as long as encrypted files need to remain readable. |
+| `AUDIT_LOG_HMAC_KEY` | Separate high-entropy key of at least 32 characters, distinct from `DJANGO_SECRET_KEY`; keep it unchanged for existing audit history. |
+| `DJANGO_ALLOWED_HOSTS` | Backend hostname only, for example `sv-share-view.onrender.com` (no scheme or path). |
+| `CORS_ALLOWED_ORIGINS` | `https://sv-share-view-fe.onrender.com` for the current frontend. |
+| `CSRF_TRUSTED_ORIGINS` | `https://sv-share-view.onrender.com` if using Django Admin over HTTPS. |
+
+The backend exits during startup in production if required keys are absent or
+invalid. If a database or encrypted files already contain data, recover the
+original encryption and audit keys rather than generating replacements. The
+Render filesystem is ephemeral unless a persistent disk is configured; attach
+one and set `MEDIA_ROOT` and `AUDIT_CHECKPOINT_PATH` to paths on it if uploads
+and audit checkpoints must survive redeploys. After deployment, check Render
+**Events** and **Logs**, then verify `/api/account/` returns `401` when
+unauthenticated (not a timeout).
+
 Existing files from before the encryption update are marked **Legacy plaintext** and remain downloadable for compatibility; upload them again to store an encrypted copy. New files are encrypted before being written to storage. File data is never served through a public media URL.
 
 ### Single-server HTTPS deployment with Docker
