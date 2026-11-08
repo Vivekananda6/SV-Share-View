@@ -121,6 +121,12 @@ Do not expose the Vite development server to the public internet. This setup is 
 
 The frontend uses same-origin `/api/` requests by default. In LAN development, Vite proxies these requests to Django. In production, Caddy routes them directly to the API. For a separately hosted API, set `VITE_API_BASE_URL` to its full API URL (including `/api/`) before building and configure the API's allowed CORS origin.
 
+For the Render frontend hosted separately from the API, set its build-time
+`VITE_API_BASE_URL` value to the plain URL
+`https://sv-share-view.onrender.com/api/`—without Markdown brackets, parentheses,
+or quotation marks—then trigger a new frontend deployment. This variable is
+embedded in the static JavaScript bundle at build time.
+
 ## Database and production configuration
 
 SQLite is the default and is suitable for a single server with local persistent storage. For PostgreSQL, set `DATABASE_ENGINE=django.db.backends.postgresql` and configure `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_HOST`, and `DATABASE_PORT`. Hosted platforms that provide a PostgreSQL connection URL can set `DATABASE_URL`; when present, it takes precedence over the individual database settings and uses SSL when `DJANGO_DEBUG=false`.

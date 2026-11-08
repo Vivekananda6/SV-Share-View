@@ -7,10 +7,16 @@ import {
     saveAccessToken,
 } from './authStorage';
 
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sv-share-view.onrender.com/api/';
-const apiBaseUrl = configuredApiBaseUrl.endsWith('/')
-    ? configuredApiBaseUrl
-    : `${configuredApiBaseUrl}/`;
+const configuredApiBaseUrl = (
+    import.meta.env.VITE_API_BASE_URL || 'https://sv-share-view.onrender.com/api/'
+).trim();
+const markdownApiLink = configuredApiBaseUrl.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+const normalizedApiBaseUrl = markdownApiLink?.[1] === markdownApiLink?.[2]
+    ? markdownApiLink[2]
+    : configuredApiBaseUrl;
+const apiBaseUrl = normalizedApiBaseUrl.endsWith('/')
+    ? normalizedApiBaseUrl
+    : `${normalizedApiBaseUrl}/`;
 
 const api = axios.create({
     baseURL: apiBaseUrl,
