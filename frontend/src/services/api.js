@@ -7,7 +7,7 @@ import {
     saveAccessToken,
 } from './authStorage';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sv-share-view-1.onrender.com/api/';
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sv-share-view.onrender.com/api/';
 
 
 const api = axios.create({
