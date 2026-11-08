@@ -14,6 +14,14 @@ const localDateTimeValue = (date) => {
     return localDate.toISOString().slice(0, 16);
 };
 
+const getListData = (data, resource) => {
+    const list = Array.isArray(data) ? data : data?.results;
+    if (!Array.isArray(list)) {
+        throw new Error(`The API returned an invalid ${resource} response (expected a list).`);
+    }
+    return list;
+};
+
 const Dashboard = ({ onLogout }) => {
     const [files, setFiles] = useState([]);
     const [shares, setShares] = useState([]);
@@ -70,25 +78,33 @@ const Dashboard = ({ onLogout }) => {
                     return;
                 }
 
-                switch (index) {
-                    case 0:
-                        setFiles(result.value.data);
-                        break;
-                    case 1:
-                        setLogs(result.value.data.events);
-                        setRecentActivityCount(result.value.data.count_24h);
-                        break;
-                    case 2:
-                        setShares(result.value.data);
-                        break;
-                    case 3:
-                        setSharedFiles(result.value.data);
-                        break;
-                    case 4:
-                        setAccount(result.value.data);
-                        break;
-                    default:
-                        break;
+                try {
+                    switch (index) {
+                        case 0:
+                            setFiles(getListData(result.value.data, 'documents'));
+                            break;
+                        case 1: {
+                            const events = getListData(result.value.data.events, 'activity');
+                            setLogs(events);
+                            setRecentActivityCount(result.value.data.count_24h);
+                            break;
+                        }
+                        case 2:
+                            setShares(getListData(result.value.data, 'shares'));
+                            break;
+                        case 3:
+                            setSharedFiles(getListData(result.value.data, 'shared documents'));
+                            break;
+                        case 4:
+                            setAccount(result.value.data);
+                            break;
+                        default:
+                            break;
+                    }
+                } catch (responseError) {
+                    failures.push(
+                        `${requests[index][0]}: ${responseError.message}`,
+                    );
                 }
             });
 
