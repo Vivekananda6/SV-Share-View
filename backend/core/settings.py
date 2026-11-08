@@ -157,13 +157,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    (
-        ["http://localhost:5173", "http://127.0.0.1:5173"],[
-    "https://sv-share-view-fe.onrender.com"]
-        if DEBUG
-        else []
-    ),
+    [
+        "https://sv-share-view-fe.onrender.com",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 )
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = False
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", [])
