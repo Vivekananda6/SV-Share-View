@@ -619,6 +619,17 @@ class SecureFileApiTests(TestCase):
         self.assertEqual(event.outcome, AuditLog.Outcome.FAILURE)
         self.assertNotIn("incorrect-password", event.details)
 
+    def test_unregistered_username_cannot_obtain_login_tokens(self):
+        response = self.client.post(
+            "/api/token/",
+            {"username": "not-registered", "password": "random-password"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
+
     def test_login_is_rate_limited(self):
         self.client.force_authenticate(user=None)
         responses = [

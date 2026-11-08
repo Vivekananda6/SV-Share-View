@@ -58,7 +58,9 @@ const Auth = ({ onLoginSuccess }) => {
             }
         } catch (requestError) {
             const details = requestError.response?.data;
-            const message = details?.detail
+            const message = requestError.code === 'AUTH_INVALID_TOKEN_RESPONSE'
+                ? requestError.message
+                : details?.detail
                 || details?.error
                 || (details && Object.values(details).flat().join(' '));
             setError(typeof message === 'string'

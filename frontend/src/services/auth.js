@@ -3,11 +3,17 @@ import api from './api';
 import { clearTokens, getAccessToken, saveTokens } from './authStorage';
 
 export const login = async (username, password) => {
+    clearTokens();
     const response = await api.post('token/', { username, password });
-    if (response.data.access) {
-        saveTokens(response.data);
+    const { access, refresh } = response.data || {};
+    if (typeof access !== 'string' || !access || typeof refresh !== 'string' || !refresh) {
+        clearTokens();
+        const error = new Error('The server returned an invalid sign-in response. Please try again.');
+        error.code = 'AUTH_INVALID_TOKEN_RESPONSE';
+        throw error;
     }
 
+    saveTokens({ access, refresh });
     return response.data;
 };
 
