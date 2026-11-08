@@ -3,6 +3,7 @@ import {
     Activity, Check, Eye, EyeOff, FileKey2, LockKeyhole, Shield,
     UserRound, X,
 } from 'lucide-react';
+import { getApiErrorMessage } from '../services/api';
 import { login, register } from '../services/auth';
 
 const passwordRules = [
@@ -62,7 +63,12 @@ const Auth = ({ onLoginSuccess }) => {
                 || (details && Object.values(details).flat().join(' '));
             setError(typeof message === 'string'
                 ? message
-                : (isLogin ? 'Sign in failed. Check your username and password.' : 'Account creation failed. Check the details and try again.'));
+                : getApiErrorMessage(
+                    requestError,
+                    isLogin
+                        ? 'Sign in failed. Check your username and password.'
+                        : 'Account creation failed. Check the details and try again.',
+                ));
         } finally {
             setIsSubmitting(false);
         }

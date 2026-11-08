@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command, CommandError
 from django.test import RequestFactory, TestCase, override_settings
@@ -32,6 +33,7 @@ TEST_ENCRYPTION_KEY = base64.urlsafe_b64encode(b"t" * 32).decode("ascii")
 @override_settings(FILE_ENCRYPTION_KEY=TEST_ENCRYPTION_KEY)
 class SecureFileApiTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.media_dir = tempfile.TemporaryDirectory()
         self.media_settings = override_settings(MEDIA_ROOT=self.media_dir.name)
         self.media_settings.enable()
@@ -47,6 +49,7 @@ class SecureFileApiTests(TestCase):
         self.client.force_authenticate(user=self.user)
 
     def tearDown(self):
+        cache.clear()
         self.audit_settings.disable()
         self.media_settings.disable()
         self.media_dir.cleanup()
@@ -417,8 +420,18 @@ class SecureFileApiTests(TestCase):
         authenticated_client.credentials(
             HTTP_AUTHORIZATION=f"Bearer {token_response.data['access']}"
         )
-        files_response = authenticated_client.get("/api/files/")
-        self.assertEqual(files_response.status_code, 200)
+        for endpoint in (
+            "/api/files/",
+            "/api/activity/summary/",
+            "/api/shares/",
+            "/api/shared-with-me/",
+            "/api/account/",
+        ):
+            with self.subTest(endpoint=endpoint):
+                self.assertEqual(
+                    authenticated_client.get(endpoint).status_code,
+                    200,
+                )
 
         refresh_response = authenticated_client.post(
             "/api/token/refresh/",
@@ -568,6 +581,27 @@ class SecureFileApiTests(TestCase):
         self.assertEqual(event.actor_username, "alice")
         self.assertEqual(event.outcome, AuditLog.Outcome.FAILURE)
         self.assertNotIn("incorrect-password", event.details)
+
+    def test_login_is_rate_limited(self):
+        self.client.force_authenticate(user=None)
+        responses = [
+            self.client.post(
+                "/api/token/",
+                {"username": "alice", "password": "incorrect-password"},
+                format="json",
+            )
+            for _ in range(6)
+        ]
+
+        self.assertTrue(all(response.status_code == 401 for response in responses[:5]))
+        self.assertEqual(responses[5].status_code, 429)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="API Access Denied",
+                outcome=AuditLog.Outcome.FAILURE,
+                details__contains="HTTP 429",
+            ).exists()
+        )
 
     def test_owner_can_share_file_with_registered_user_for_download(self):
         uploaded = self.client.post(

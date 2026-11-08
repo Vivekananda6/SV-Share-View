@@ -157,11 +157,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
-    [
-        "https://sv-share-view-fe.onrender.com",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
+    ["https://sv-share-view-fe.onrender.com"]
+    + (
+        ["http://localhost:5173", "http://127.0.0.1:5173"]
+        if DEBUG
+        else []
+    ),
 )
 
 CORS_ALLOW_ALL_ORIGINS = False
@@ -170,6 +171,13 @@ CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", [])
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "api.views.audit_api_exception",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "5/min",
+        "register": "5/hour",
+    },
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "api.authentication.VersionedJWTAuthentication",
     ),

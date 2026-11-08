@@ -7,12 +7,33 @@ import {
     saveAccessToken,
 } from './authStorage';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sv-share-view.onrender.com/api/';
-
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sv-share-view.onrender.com/api/';
+const apiBaseUrl = configuredApiBaseUrl.endsWith('/')
+    ? configuredApiBaseUrl
+    : `${configuredApiBaseUrl}/`;
 
 const api = axios.create({
     baseURL: apiBaseUrl,
+    timeout: 90000,
 });
+
+export const getApiErrorMessage = (error, fallback) => {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+
+    if (error.code === 'ECONNABORTED') {
+        return 'The server did not respond in time. Wait a moment and retry; if this continues, check the backend service status.';
+    }
+
+    if (!error.response) {
+        return 'Cannot reach the API server. Check that the backend service is running and that its URL is configured correctly.';
+    }
+
+    const endpoint = error.config?.url;
+    return endpoint
+        ? `${fallback} (request ${endpoint}, HTTP ${error.response.status}).`
+        : fallback;
+};
 
 api.interceptors.request.use(
     (config) => {
@@ -48,7 +69,11 @@ api.interceptors.response.use(
 
         request._retry = true;
         try {
-            const response = await axios.post(`${apiBaseUrl}token/refresh/`, { refresh });
+            const response = await axios.post(
+                `${apiBaseUrl}token/refresh/`,
+                { refresh },
+                { timeout: api.defaults.timeout },
+            );
             saveAccessToken(response.data.access);
             request.headers.Authorization = `Bearer ${response.data.access}`;
             return api(request);

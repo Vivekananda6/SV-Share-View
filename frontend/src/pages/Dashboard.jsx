@@ -5,7 +5,7 @@ import {
     Shield, Upload, FileText, LogOut, Lock, Download, Share2, Users,
     RefreshCw, Clock3, Files, Activity,
 } from 'lucide-react';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
 import { logout } from '../services/auth';
 
 const localDateTimeValue = (date) => {
@@ -48,24 +48,54 @@ const Dashboard = ({ onLogout }) => {
         }
         fetchInProgress.current = true;
         setRefreshing(true);
+        const requests = [
+            ['documents', api.get('files/')],
+            ['activity', api.get('activity/summary/')],
+            ['shares', api.get('shares/')],
+            ['shared documents', api.get('shared-with-me/')],
+            ['account', api.get('account/')],
+        ];
         try {
-            const [filesRes, activityRes, sharesRes, sharedFilesRes, accountRes] = await Promise.all([
-                api.get('files/'),
-                api.get('activity/summary/'),
-                api.get('shares/'),
-                api.get('shared-with-me/'),
-                api.get('account/'),
-            ]);
-            setFiles(filesRes.data);
-            setLogs(activityRes.data.events);
-            setRecentActivityCount(activityRes.data.count_24h);
-            setShares(sharesRes.data);
-            setSharedFiles(sharedFilesRes.data);
-            setAccount(accountRes.data);
-            setLastUpdated(new Date());
-            setError('');
-        } catch (requestError) {
-            setError(requestError.response?.data?.detail || 'Unable to load your vault data.');
+            const results = await Promise.allSettled(requests.map(([, request]) => request));
+            const failures = [];
+
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    failures.push(
+                        `${requests[index][0]}: ${getApiErrorMessage(
+                            result.reason,
+                            'request failed',
+                        )}`,
+                    );
+                    return;
+                }
+
+                switch (index) {
+                    case 0:
+                        setFiles(result.value.data);
+                        break;
+                    case 1:
+                        setLogs(result.value.data.events);
+                        setRecentActivityCount(result.value.data.count_24h);
+                        break;
+                    case 2:
+                        setShares(result.value.data);
+                        break;
+                    case 3:
+                        setSharedFiles(result.value.data);
+                        break;
+                    case 4:
+                        setAccount(result.value.data);
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            if (!failures.length) {
+                setLastUpdated(new Date());
+            }
+            setError(failures.length ? `Some vault data could not be loaded — ${failures.join(' ')}` : '');
         } finally {
             fetchInProgress.current = false;
             setLoading(false);

@@ -172,6 +172,7 @@ class AuditedTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class AuditedTokenObtainPairView(TokenObtainPairView):
     serializer_class = AuditedTokenObtainPairSerializer
+    throttle_scope = 'login'
 
 
 class VersionedTokenRefreshSerializer(TokenRefreshSerializer):
@@ -1068,6 +1069,7 @@ def record_passcode_failure(request, share, details):
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'register'
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
