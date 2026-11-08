@@ -129,15 +129,14 @@ For production, set `DJANGO_DEBUG=false`, a unique `DJANGO_SECRET_KEY`, `FILE_EN
 
 ### Deploy the backend to Render
 
-For a Render **Python Web Service** serving this repository's backend, select
-the `main` branch and set **Root Directory** to `backend`. Configure:
+The Render deploy log shows this backend is deployed using its Dockerfile.
+Select the `main` branch and set **Root Directory** to `backend`. The Dockerfile
+applies migrations, collects static files, and starts Gunicorn on Render's
+`$PORT`; leave the Render Start Command blank to use the image command.
 
-- **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `bash start.sh`
-
-The start script applies migrations and collects static files before starting
-Gunicorn, and stops if either setup step fails. Do not ignore a migration error
-and start the server against an outdated database schema.
+For a separate **Python Web Service**, instead use Build Command
+`pip install -r requirements.txt` and Start Command `bash start.sh`. Both
+startup paths stop if migrations or static collection fail.
 
 Set these environment variable names in the Render service (enter secret
 values in Render only):
@@ -156,17 +155,13 @@ values in Render only):
 The backend exits during startup in production if required keys are absent or
 invalid. If a database or encrypted files already contain data, recover the
 original encryption and audit keys rather than generating replacements. The
-Render filesystem is ephemeral unless a persistent disk is configured. To keep
-uploads across deploys, attach a persistent disk mounted at `/var/data` and set
-`MEDIA_ROOT=/var/data/media` and
-`AUDIT_CHECKPOINT_PATH=/var/data/audit-checkpoint/events.jsonl`; these paths
-must be on that disk. Without persistent storage, files can disappear after a
-restart or deploy even if an upload initially succeeds. After deployment,
-check Render **Events** and **Logs**, then verify `/api/account/` returns `401`
-when unauthenticated (not a timeout). The Render defaults for these paths are
-`MEDIA_ROOT=/var/data/media` and
-`AUDIT_CHECKPOINT_PATH=/var/data/audit-checkpoint/events.jsonl`; attach the disk
-at `/var/data` or set the variables to the actual mount path.
+Render filesystem is ephemeral unless a persistent disk is configured. The
+application defaults to writable directories inside `/app` in Docker, so the
+service can start without a disk, but uploads and audit checkpoints may be lost
+when the instance is replaced. For durable files, attach a persistent disk and
+set `MEDIA_ROOT` and `AUDIT_CHECKPOINT_PATH` to locations on its mount. After
+deployment, check Render **Events** and **Logs**, then verify `/api/account/`
+returns `401` when unauthenticated (not a timeout).
 
 Existing files from before the encryption update are marked **Legacy plaintext** and remain downloadable for compatibility; upload them again to store an encrypted copy. New files are encrypted before being written to storage. File data is never served through a public media URL.
 

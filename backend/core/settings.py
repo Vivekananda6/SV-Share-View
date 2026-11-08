@@ -138,7 +138,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-DEFAULT_MEDIA_ROOT = Path("/var/data/media") if IS_RENDER else BASE_DIR / "media"
+DEFAULT_MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", str(DEFAULT_MEDIA_ROOT)))
 FILE_ENCRYPTION_KEY = os.environ.get("FILE_ENCRYPTION_KEY", "")
 if FILE_ENCRYPTION_KEY:
@@ -199,11 +199,7 @@ SIMPLE_JWT = {
     "CHECK_REVOKE_TOKEN": True,
 }
 AUDIT_LOG_HMAC_KEY = os.environ.get("AUDIT_LOG_HMAC_KEY") or SECRET_KEY
-DEFAULT_AUDIT_CHECKPOINT_PATH = (
-    Path("/var/data/audit-checkpoint/events.jsonl")
-    if IS_RENDER
-    else BASE_DIR / "audit-checkpoint" / "events.jsonl"
-)
+DEFAULT_AUDIT_CHECKPOINT_PATH = BASE_DIR / "audit_checkpoint" / "events.jsonl"
 AUDIT_CHECKPOINT_PATH = os.environ.get(
     "AUDIT_CHECKPOINT_PATH",
     str(DEFAULT_AUDIT_CHECKPOINT_PATH),
