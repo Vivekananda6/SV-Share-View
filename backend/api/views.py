@@ -1072,15 +1072,16 @@ class RegisterView(APIView):
     throttle_scope = 'register'
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        record_audit(
-            request,
-            "User Registered",
-            actor_user=user,
-            details="Account created.",
-        )
+        with transaction.atomic():
+            serializer = RegisterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            record_audit(
+                request,
+                "User Registered",
+                actor_user=user,
+                details="Account created.",
+            )
         return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
 
 

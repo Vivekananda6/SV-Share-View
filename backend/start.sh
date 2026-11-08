@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
-gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+exec gunicorn core.wsgi:application --bind "0.0.0.0:${PORT:?PORT must be set by Render}" --workers 1 --timeout 120

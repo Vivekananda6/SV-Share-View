@@ -288,7 +288,44 @@ class SecureFileApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201)
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
         self.assertTrue(User.objects.filter(username="new-user").exists())
+
+    def test_registration_rolls_back_user_if_audit_checkpoint_write_fails(self):
+        self.client.raise_request_exception = False
+        with patch(
+            "api.views.append_audit_checkpoint",
+            side_effect=OSError("checkpoint unavailable"),
+        ):
+            response = self.client.post(
+                "/api/register/",
+                {
+                    "username": "audit-failure-user",
+                    "password": "A-strong-example-Pass!738",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(User.objects.filter(username="audit-failure-user").exists())
+        self.assertFalse(
+            AuditLog.objects.filter(
+                actor_username="audit-failure-user",
+                action="User Registered",
+            ).exists()
+        )
+
+    def test_unregistered_user_cannot_obtain_login_tokens(self):
+        response = self.client.post(
+            "/api/token/",
+            {"username": "not-registered", "password": "A-strong-example-Pass!738"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
 
     def test_client_cannot_choose_encryption_metadata(self):
         upload = SimpleUploadedFile("private.txt", b"private")

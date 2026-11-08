@@ -29,8 +29,12 @@ def env_list(name, default):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-DEBUG = env_bool("DJANGO_DEBUG", True)
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+IS_RENDER = os.environ.get("RENDER", "").strip().lower() == "true"
+DEBUG = env_bool("DJANGO_DEBUG", not IS_RENDER)
+if IS_RENDER and DEBUG:
+    raise ImproperlyConfigured("DJANGO_DEBUG must be false when running on Render.")
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY", "")
 if not SECRET_KEY:
     if not DEBUG:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY must be configured when DJANGO_DEBUG is false.")
@@ -134,7 +138,8 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media")))
+DEFAULT_MEDIA_ROOT = Path("/var/data/media") if IS_RENDER else BASE_DIR / "media"
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", str(DEFAULT_MEDIA_ROOT)))
 FILE_ENCRYPTION_KEY = os.environ.get("FILE_ENCRYPTION_KEY", "")
 if FILE_ENCRYPTION_KEY:
     try:
@@ -194,9 +199,14 @@ SIMPLE_JWT = {
     "CHECK_REVOKE_TOKEN": True,
 }
 AUDIT_LOG_HMAC_KEY = os.environ.get("AUDIT_LOG_HMAC_KEY") or SECRET_KEY
+DEFAULT_AUDIT_CHECKPOINT_PATH = (
+    Path("/var/data/audit-checkpoint/events.jsonl")
+    if IS_RENDER
+    else BASE_DIR / "audit-checkpoint" / "events.jsonl"
+)
 AUDIT_CHECKPOINT_PATH = os.environ.get(
     "AUDIT_CHECKPOINT_PATH",
-    str(BASE_DIR / "audit-checkpoint" / "events.jsonl"),
+    str(DEFAULT_AUDIT_CHECKPOINT_PATH),
 )
 if not DEBUG and not os.environ.get("AUDIT_LOG_HMAC_KEY"):
     raise ImproperlyConfigured(

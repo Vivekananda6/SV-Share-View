@@ -132,8 +132,12 @@ For production, set `DJANGO_DEBUG=false`, a unique `DJANGO_SECRET_KEY`, `FILE_EN
 For a Render **Python Web Service** serving this repository's backend, select
 the `main` branch and set **Root Directory** to `backend`. Configure:
 
-- **Build Command:** `pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput`
-- **Start Command:** `gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `bash start.sh`
+
+The start script applies migrations and collects static files before starting
+Gunicorn, and stops if either setup step fails. Do not ignore a migration error
+and start the server against an outdated database schema.
 
 Set these environment variable names in the Render service (enter secret
 values in Render only):
@@ -141,8 +145,8 @@ values in Render only):
 | Variable | Configuration |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection URL; prefer the database's internal URL when hosted in the same Render region. |
-| `DJANGO_DEBUG` | `false`; a variable named `DEBUG` is not read by this project. |
-| `DJANGO_SECRET_KEY` | Unique high-entropy Django secret. The application does not read a variable named `SECRET_KEY`. |
+| `DJANGO_DEBUG` | `false`; the application refuses to start on Render if debug mode is enabled. |
+| `DJANGO_SECRET_KEY` | Unique high-entropy Django secret. `SECRET_KEY` is accepted as a legacy alias; prefer renaming it to `DJANGO_SECRET_KEY`. |
 | `FILE_ENCRYPTION_KEY` | URL-safe base64 key decoding to exactly 32 bytes. Keep it unchanged for as long as encrypted files need to remain readable. |
 | `AUDIT_LOG_HMAC_KEY` | Separate high-entropy key of at least 32 characters, distinct from `DJANGO_SECRET_KEY`; keep it unchanged for existing audit history. |
 | `DJANGO_ALLOWED_HOSTS` | Backend hostname only, for example `sv-share-view.onrender.com` (no scheme or path). |
@@ -152,11 +156,17 @@ values in Render only):
 The backend exits during startup in production if required keys are absent or
 invalid. If a database or encrypted files already contain data, recover the
 original encryption and audit keys rather than generating replacements. The
-Render filesystem is ephemeral unless a persistent disk is configured; attach
-one and set `MEDIA_ROOT` and `AUDIT_CHECKPOINT_PATH` to paths on it if uploads
-and audit checkpoints must survive redeploys. After deployment, check Render
-**Events** and **Logs**, then verify `/api/account/` returns `401` when
-unauthenticated (not a timeout).
+Render filesystem is ephemeral unless a persistent disk is configured. To keep
+uploads across deploys, attach a persistent disk mounted at `/var/data` and set
+`MEDIA_ROOT=/var/data/media` and
+`AUDIT_CHECKPOINT_PATH=/var/data/audit-checkpoint/events.jsonl`; these paths
+must be on that disk. Without persistent storage, files can disappear after a
+restart or deploy even if an upload initially succeeds. After deployment,
+check Render **Events** and **Logs**, then verify `/api/account/` returns `401`
+when unauthenticated (not a timeout). The Render defaults for these paths are
+`MEDIA_ROOT=/var/data/media` and
+`AUDIT_CHECKPOINT_PATH=/var/data/audit-checkpoint/events.jsonl`; attach the disk
+at `/var/data` or set the variables to the actual mount path.
 
 Existing files from before the encryption update are marked **Legacy plaintext** and remain downloadable for compatibility; upload them again to store an encrypted copy. New files are encrypted before being written to storage. File data is never served through a public media URL.
 

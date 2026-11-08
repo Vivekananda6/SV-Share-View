@@ -14,10 +14,22 @@ const localDateTimeValue = (date) => {
     return localDate.toISOString().slice(0, 16);
 };
 
+const describeResponseShape = (data) => {
+    if (data === null) return 'null';
+    if (Array.isArray(data)) return `array with ${data.length} items`;
+    if (typeof data === 'object') {
+        const keys = Object.keys(data);
+        return `object with keys: ${keys.length ? keys.join(', ') : '(none)'}`;
+    }
+    return typeof data;
+};
+
 const getListData = (data, resource) => {
     const list = Array.isArray(data) ? data : data?.results;
     if (!Array.isArray(list)) {
-        throw new Error(`The API returned an invalid ${resource} response (expected a list).`);
+        throw new Error(
+            `The API returned an invalid ${resource} response (expected a list; received ${describeResponseShape(data)}).`,
+        );
     }
     return list;
 };
@@ -84,9 +96,10 @@ const Dashboard = ({ onLogout }) => {
                             setFiles(getListData(result.value.data, 'documents'));
                             break;
                         case 1: {
-                            const events = getListData(result.value.data.events, 'activity');
+                            const activity = result.value.data;
+                            const events = getListData(activity?.events, 'activity');
                             setLogs(events);
-                            setRecentActivityCount(result.value.data.count_24h);
+                            setRecentActivityCount(activity.count_24h);
                             break;
                         }
                         case 2:
