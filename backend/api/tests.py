@@ -1,9 +1,11 @@
 import base64
+from io import BytesIO
 import os
 import tempfile
 from datetime import timedelta
 from pathlib import Path
 
+from PIL import Image
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
@@ -23,6 +25,7 @@ from .models import (
     FileShare,
     SecureFile,
     SharedFileRevision,
+    UserProfile,
     UserModeration,
 )
 from .views import record_audit
@@ -1032,6 +1035,119 @@ class SecureFileApiTests(TestCase):
             ).status_code,
             403,
         )
+
+    def test_profile_photo_upload_privacy_admin_display_and_removal(self):
+        image_bytes = BytesIO()
+        Image.new("RGBA", (32, 24), (25, 100, 200, 180)).save(
+            image_bytes,
+            format="PNG",
+        )
+        upload = SimpleUploadedFile(
+            "portrait.png",
+            image_bytes.getvalue(),
+            content_type="image/png",
+        )
+        uploaded = self.client.patch(
+            "/api/account/profile-photo/",
+            {"avatar": upload},
+            format="multipart",
+        )
+
+        self.assertEqual(uploaded.status_code, 200)
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertTrue(profile.avatar.name.endswith(".jpg"))
+        with profile.avatar.open("rb") as avatar:
+            self.assertTrue(avatar.read().startswith(b"\xff\xd8"))
+        with profile.avatar.open("rb") as normalized_file:
+            with Image.open(normalized_file) as normalized:
+                self.assertEqual(normalized.format, "JPEG")
+                self.assertLessEqual(max(normalized.size), 512)
+                self.assertFalse(normalized.getexif())
+        account = self.client.get("/api/account/")
+        self.assertTrue(account.data["has_avatar"])
+        self.assertIn("/account/avatar/?v=", account.data["avatar_url"])
+
+        own_avatar = self.client.get("/api/account/avatar/")
+        self.assertEqual(own_avatar.status_code, 200)
+        self.assertEqual(own_avatar["Content-Type"], "image/jpeg")
+        self.assertEqual(own_avatar["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(b"".join(own_avatar.streaming_content).startswith(b"\xff\xd8"))
+        own_avatar.close()
+
+        staff_user = User.objects.create_user(username="avatar-admin", is_staff=True)
+        staff_client = APIClient()
+        staff_client.force_authenticate(user=staff_user)
+        listing = staff_client.get("/api/admin/overview/")
+        user_row = next(row for row in listing.data["users"] if row["id"] == self.user.pk)
+        self.assertIn(f"/admin/users/{self.user.pk}/avatar/?v=", user_row["avatar_url"])
+        admin_avatar = staff_client.get(f"/api/admin/users/{self.user.pk}/avatar/")
+        self.assertEqual(admin_avatar.status_code, 200)
+        self.assertEqual(admin_avatar["Content-Type"], "image/jpeg")
+        self.assertTrue(b"".join(admin_avatar.streaming_content).startswith(b"\xff\xd8"))
+        admin_avatar.close()
+
+        other_client = APIClient()
+        other_user = User.objects.create_user(username="avatar-other")
+        other_client.force_authenticate(user=other_user)
+        self.assertEqual(
+            other_client.get(f"/api/admin/users/{self.user.pk}/avatar/").status_code,
+            403,
+        )
+        self.assertEqual(
+            other_client.get("/api/account/avatar/").status_code,
+            404,
+        )
+
+        invalid_upload = SimpleUploadedFile(
+            "portrait.svg",
+            b"<svg></svg>",
+            content_type="image/svg+xml",
+        )
+        self.assertEqual(
+            self.client.patch(
+                "/api/account/profile-photo/",
+                {"avatar": invalid_upload},
+                format="multipart",
+            ).status_code,
+            400,
+        )
+
+        removed = self.client.delete("/api/account/profile-photo/")
+        self.assertEqual(removed.status_code, 200)
+        profile.refresh_from_db()
+        self.assertFalse(profile.avatar)
+        self.assertFalse(self.client.get("/api/account/").data["has_avatar"])
+        self.assertEqual(self.client.get("/api/account/avatar/").status_code, 404)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="Profile Photo Updated",
+                user=self.user,
+            ).exists()
+        )
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="Profile Photo Removed",
+                user=self.user,
+            ).exists()
+        )
+
+    def test_profile_photo_upload_rejects_files_over_two_megabytes(self):
+        image_bytes = BytesIO()
+        Image.new("RGB", (4, 4), (30, 60, 90)).save(image_bytes, format="PNG")
+        image_bytes.seek(0)
+        oversized = SimpleUploadedFile(
+            "large.png",
+            image_bytes.read() + b"x" * (2 * 1024 * 1024),
+            content_type="image/png",
+        )
+        response = self.client.patch(
+            "/api/account/profile-photo/",
+            {"avatar": oversized},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(UserProfile.objects.filter(user=self.user).exists())
 
     def test_staff_can_manage_every_document_and_revoke_any_share(self):
         owner = User.objects.create_user(username="document-owner")

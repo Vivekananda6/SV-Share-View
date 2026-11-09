@@ -3,9 +3,12 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     AccountView,
+    AccountAvatarView,
+    AccountProfilePhotoView,
     AdminAuditView,
     AdminOverviewView,
     AdminUserActionView,
+    AdminUserAvatarView,
     AdminUserProfileView,
     ActivitySummaryView,
     AdminDocumentListView,
@@ -33,6 +36,12 @@ router.register(r'logs', AuditLogViewSet, basename='auditlog')
 
 urlpatterns = [
     path('account/', AccountView.as_view(), name='account'),
+    path('account/avatar/', AccountAvatarView.as_view(), name='account-avatar'),
+    path(
+        'account/profile-photo/',
+        AccountProfilePhotoView.as_view(),
+        name='account-profile-photo',
+    ),
     path('activity/summary/', ActivitySummaryView.as_view(), name='activity-summary'),
     path('admin/overview/', AdminOverviewView.as_view(), name='admin-overview'),
     path('admin/audit/', AdminAuditView.as_view(), name='admin-audit'),
@@ -56,6 +65,11 @@ urlpatterns = [
         'admin/shares/<int:pk>/action/',
         AdminShareActionView.as_view(),
         name='admin-share-action',
+    ),
+    path(
+        'admin/users/<int:pk>/avatar/',
+        AdminUserAvatarView.as_view(),
+        name='admin-user-avatar',
     ),
     path(
         'admin/users/<int:pk>/profile/',

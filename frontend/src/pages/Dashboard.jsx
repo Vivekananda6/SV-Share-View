@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api, { getApiErrorMessage } from '../services/api';
 import { logout } from '../services/auth';
+import AuthenticatedAvatar from '../components/AuthenticatedAvatar';
 
 const localDateTimeValue = (date) => {
     const localDate = new Date(date);
@@ -49,6 +50,7 @@ const Dashboard = ({ onLogout }) => {
     const [recentActivityCount, setRecentActivityCount] = useState(0);
     const [account, setAccount] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [updatingAvatar, setUpdatingAvatar] = useState(false);
     const [uploadCategory, setUploadCategory] = useState('Uncategorized');
     const [searchText, setSearchText] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
@@ -172,6 +174,46 @@ const Dashboard = ({ onLogout }) => {
         } finally {
             setUploading(false);
             e.target.value = '';
+        }
+    };
+
+    const handleAvatarUpload = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            setError('Profile photos must be no larger than 2 MB.');
+            return;
+        }
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setError('Choose a JPEG, PNG, or WebP profile photo.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+        setUpdatingAvatar(true);
+        setError('');
+        try {
+            await api.patch('account/profile-photo/', formData);
+            await fetchData();
+        } catch (requestError) {
+            setError(getApiErrorMessage(requestError, 'Could not update your profile photo.'));
+        } finally {
+            setUpdatingAvatar(false);
+        }
+    };
+
+    const handleAvatarRemove = async () => {
+        setUpdatingAvatar(true);
+        setError('');
+        try {
+            await api.delete('account/profile-photo/');
+            await fetchData();
+        } catch (requestError) {
+            setError(getApiErrorMessage(requestError, 'Could not remove your profile photo.'));
+        } finally {
+            setUpdatingAvatar(false);
         }
     };
 
@@ -405,6 +447,40 @@ const Dashboard = ({ onLogout }) => {
                     </div>
                 </div>
                 <div className="dashboard-header-actions">
+                    {account && (
+                        <div className="dashboard-profile">
+                            <AuthenticatedAvatar
+                                className="dashboard-avatar"
+                                username={account.username}
+                                src={account.avatar_url}
+                            />
+                            <div className="dashboard-profile-actions">
+                                <span className="dashboard-profile-name">{account.username}</span>
+                                <div>
+                                    <label className="dashboard-avatar-upload">
+                                        {updatingAvatar ? 'Updating…' : account.has_avatar ? 'Change photo' : 'Add photo'}
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            aria-label="Upload profile photo"
+                                            disabled={updatingAvatar}
+                                            onChange={handleAvatarUpload}
+                                        />
+                                    </label>
+                                    {account.has_avatar && (
+                                        <button
+                                            className="dashboard-avatar-remove"
+                                            type="button"
+                                            disabled={updatingAvatar}
+                                            onClick={handleAvatarRemove}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {account?.is_staff && (
                         <Link className="secondary-button admin-link" to="/control">
                             Admin portal

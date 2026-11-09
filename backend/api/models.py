@@ -1,6 +1,23 @@
 # backend/api/models.py
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import User
+
+
+def profile_avatar_path(instance, filename):
+    return f'profile_avatars/{instance.user_id}/{uuid.uuid4().hex}.jpg'
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='profile',
+    )
+    avatar = models.ImageField(upload_to=profile_avatar_path, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 class SecureFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='secure_files')

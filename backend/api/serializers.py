@@ -1,5 +1,6 @@
 # backend/api/serializers.py
 import re
+from PIL import Image, UnidentifiedImageError
 
 from django.utils import timezone
 from rest_framework import serializers
@@ -328,6 +329,33 @@ class AdminUserProfileSerializer(serializers.Serializer):
                 'Provide at least one profile field to update.'
             )
         return attrs
+
+
+class ProfilePhotoSerializer(serializers.Serializer):
+    avatar = serializers.ImageField()
+
+    def validate_avatar(self, value):
+        if value.size > 2 * 1024 * 1024:
+            raise serializers.ValidationError(
+                'Profile photos must be no larger than 2 MB.'
+            )
+        try:
+            with Image.open(value) as image:
+                if image.format not in {'JPEG', 'PNG', 'WEBP'}:
+                    raise serializers.ValidationError(
+                        'Use a JPEG, PNG, or WebP profile photo.'
+                    )
+                if image.width > 4096 or image.height > 4096:
+                    raise serializers.ValidationError(
+                        'Profile photo dimensions must not exceed 4096 by 4096 pixels.'
+                    )
+                image.verify()
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+            raise serializers.ValidationError(
+                'The uploaded profile photo is not a valid image.'
+            ) from exc
+        value.seek(0)
+        return value
 
 
 class AdminSecureFileSerializer(serializers.ModelSerializer):

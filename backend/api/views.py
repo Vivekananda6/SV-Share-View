@@ -1,4 +1,5 @@
 import hmac
+from io import BytesIO
 import logging
 import uuid
 from datetime import timedelta
@@ -7,6 +8,7 @@ from cryptography.exceptions import InvalidTag
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.core.files import File
+from django.core.files.base import ContentFile
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.http import FileResponse
@@ -36,6 +38,7 @@ from rest_framework_simplejwt.tokens import get_md5_hash_password
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import get_user_model
 from django.db.models import F
+from PIL import Image, ImageOps
 
 from .audit_integrity import append_audit_checkpoint, sign_audit_event
 from .crypto import InvalidEncryptedFile, decrypt_file, encrypt_file
@@ -46,12 +49,14 @@ from .models import (
     FileShare,
     SecureFile,
     SharedFileRevision,
+    UserProfile,
     UserModeration,
 )
 from .serializers import (
     AuditLogSerializer,
     AdminModerationActionSerializer,
     AdminUserProfileSerializer,
+    ProfilePhotoSerializer,
     FileShareCreateSerializer,
     FileShareSerializer,
     FilePasscodeSerializer,
@@ -241,11 +246,119 @@ class AccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        profile = UserProfile.objects.filter(user=request.user).first()
         return Response({
             'username': request.user.get_username(),
             'email': request.user.email,
             'is_staff': request.user.is_staff,
+            'has_avatar': bool(profile and profile.avatar),
+            'avatar_url': _avatar_url('/account/avatar/', profile),
         })
+
+
+def _avatar_file_response(profile):
+    if not profile or not profile.avatar:
+        raise NotFound('No profile photo is set.')
+    try:
+        response = FileResponse(profile.avatar.open('rb'), content_type='image/jpeg')
+    except FileNotFoundError as exc:
+        raise NotFound('The profile photo is no longer available.') from exc
+    response['Cache-Control'] = 'private, max-age=300'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+def _avatar_url(path, profile):
+    return (
+        f'{path}?v={int(profile.updated_at.timestamp() * 1_000_000)}'
+        if profile and profile.avatar else None
+    )
+
+
+class AccountAvatarView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = UserProfile.objects.filter(user=request.user).first()
+        return _avatar_file_response(profile)
+
+
+class AdminUserAvatarView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, pk):
+        profile = UserProfile.objects.filter(user_id=pk).first()
+        return _avatar_file_response(profile)
+
+
+def _normalized_avatar(uploaded_image):
+    with Image.open(uploaded_image) as source:
+        image = ImageOps.exif_transpose(source)
+        image.thumbnail((512, 512), Image.Resampling.LANCZOS)
+        if image.mode in ('RGBA', 'LA') or 'transparency' in image.info:
+            rgba = image.convert('RGBA')
+            normalized = Image.new('RGB', rgba.size, 'white')
+            normalized.paste(rgba, mask=rgba.getchannel('A'))
+        else:
+            normalized = image.convert('RGB')
+        output = BytesIO()
+        normalized.save(output, format='JPEG', quality=85, optimize=True)
+    return output.getvalue()
+
+
+class AccountProfilePhotoView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def patch(self, request):
+        serializer = ProfilePhotoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile, _ = UserProfile.objects.select_for_update().get_or_create(
+            user=request.user
+        )
+        old_name = profile.avatar.name
+        old_storage = profile.avatar.storage
+        profile.avatar.save(
+            'profile.jpg',
+            ContentFile(_normalized_avatar(serializer.validated_data['avatar'])),
+            save=False,
+        )
+        new_name = profile.avatar.name
+        profile.save(update_fields=['avatar', 'updated_at'])
+        record_audit(
+            request,
+            'Profile Photo Updated',
+            actor_user=request.user,
+            details='The account profile photo was updated.',
+        )
+
+        if old_name and old_name != new_name:
+            transaction.on_commit(lambda: old_storage.delete(old_name))
+        return Response({
+            'has_avatar': True,
+            'avatar_url': _avatar_url('/account/avatar/', profile),
+        })
+
+    @transaction.atomic
+    def delete(self, request):
+        profile = UserProfile.objects.select_for_update().filter(
+            user=request.user
+        ).first()
+        if not profile or not profile.avatar:
+            return Response({'has_avatar': False, 'avatar_url': None})
+
+        old_name = profile.avatar.name
+        storage = profile.avatar.storage
+        profile.avatar = ''
+        profile.save(update_fields=['avatar', 'updated_at'])
+        record_audit(
+            request,
+            'Profile Photo Removed',
+            actor_user=request.user,
+            details='The account profile photo was removed.',
+        )
+        transaction.on_commit(lambda: storage.delete(old_name))
+        return Response({'has_avatar': False, 'avatar_url': None})
 
 
 class AdminOverviewView(APIView):
@@ -275,6 +388,10 @@ class AdminOverviewView(APIView):
         user_start = (page - 1) * page_size
         user_rows = list(users[user_start:user_start + page_size])
         user_ids = [user.pk for user in user_rows]
+        profiles_by_user = {
+            profile.user_id: profile
+            for profile in UserProfile.objects.filter(user_id__in=user_ids)
+        }
         moderation_by_user = {
             entry.user_id: entry
             for entry in UserModeration.objects.filter(user_id__in=user_ids)
@@ -286,6 +403,7 @@ class AdminOverviewView(APIView):
         )
         accounts = []
         for user in user_rows:
+            profile = profiles_by_user.get(user.pk)
             moderation = moderation_by_user.get(user.pk)
             timed_out = bool(
                 user.is_active
@@ -299,6 +417,9 @@ class AdminOverviewView(APIView):
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'email': user.email,
+                'avatar_url': (
+                    _avatar_url(f'/admin/users/{user.pk}/avatar/', profile)
+                ),
                 'date_joined': user.date_joined,
                 'last_login': user.last_login,
                 'is_active': user.is_active,

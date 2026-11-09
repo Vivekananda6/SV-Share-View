@@ -1,6 +1,6 @@
 # SV — Share · View
 
-**SV means Share and View.** SV is a Django REST API and React web client for encrypted file storage and registered-user sharing. New uploads are encrypted on the server with AES-256-GCM. Owners can protect each file's shares with a private six-digit PIN, share with another SV account, optionally set an expiry, and revoke access; recipients must enter the PIN to download and cannot edit or delete the owner's copy.
+**SV means Share and View.** SV is a Django REST API and React web client for encrypted file storage and registered-user sharing. New uploads are encrypted on the server with AES-256-GCM. Owners can protect each file's shares with a private six-digit PIN, share with another SV account, optionally set an expiry, and revoke access; recipients must enter the PIN to download and cannot edit or delete the owner's copy. Users can optionally upload a profile photo from the dashboard; the admin account list displays it, or generated initials if no photo is set.
 
 For the architecture, data model, API map, tools, workflows, configuration, and implementation caveats, see the [Project Review](./PROJECT_REVIEW.md).
 
@@ -24,7 +24,7 @@ Every user must sign in. Documents and search results are scoped to the signed-i
 | Viewer (recipient with View) | View shared document metadata and download it after entering the document PIN. Cannot edit, replace, delete, or reshare the owner's document. |
 | Editor (recipient with Edit) | Has viewer access and may submit a replacement after entering the PIN. The owner grants and revokes this ability by setting the share to Edit or View. |
 
-Owners can search owned documents by title, owner username, category, and upload date, and recipients can apply the same filters only to active shares. Uploads and replacements reject empty files, filenames over 255 characters, and files over the configured size limit. Uploads, downloads, edits, deletions, share changes, and denied access are included in the audit trail.
+Owners can search owned documents by title, owner username, category, and upload date, and recipients can apply the same filters only to active shares. Document uploads and replacements reject empty files, filenames over 255 characters, and files over the configured size limit. Profile photos accept JPEG, PNG, and WebP files up to 2 MiB; the server validates and resizes them to a maximum of 512 pixels, then stores a metadata-free JPEG. Photo access is authenticated, and upload/removal actions are audited. Photos are not encrypted at rest; avoid uploading sensitive images.
 
 Categories are organizational labels such as **Contracts**, **Reports**, or **Invoices**. They make it easier to group and filter documents; they do not grant, restrict, or otherwise change access. The dashboard's activity count is the number of events in the last rolling 24 hours; the activity trail shows the latest 50 relevant events. The admin portal likewise reports the rolling 24-hour event count and shows the latest 100 platform events, with search.
 
@@ -168,6 +168,9 @@ when the instance is replaced. For durable files, attach a persistent disk and
 set `MEDIA_ROOT` and `AUDIT_CHECKPOINT_PATH` to locations on its mount. After
 deployment, check Render **Events** and **Logs**, then verify `/api/account/`
 returns `401` when unauthenticated (not a timeout).
+Profile photos are stored under `MEDIA_ROOT`; on Render they disappear if
+the instance is replaced without persistent media storage. Users can upload
+photos again or use initials until a persistent disk is configured.
 
 To create the first administrator in Render's PostgreSQL database, use the
 backend service's Shell (when available) and run the existing

@@ -3,6 +3,7 @@ import { Activity, ArrowLeft, Ban, CheckCircle2, Clock3, LogOut, RefreshCw, Sear
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { logout } from '../services/auth';
+import AuthenticatedAvatar from '../components/AuthenticatedAvatar';
 
 const initialCounts = {
     users: 0,
@@ -539,13 +540,12 @@ const AdminDashboard = ({ onLogout }) => {
                                     </td>
                                     <td>
                                         <div className="admin-profile-cell">
-                                            <span className="admin-avatar" aria-hidden="true">
-                                                {[user.first_name, user.last_name]
-                                                    .filter(Boolean)
-                                                    .map((name) => name[0])
-                                                    .join('')
-                                                    .toUpperCase() || user.username.slice(0, 2).toUpperCase()}
-                                            </span>
+                                            <AuthenticatedAvatar
+                                                className="admin-avatar"
+                                                username={user.username}
+                                                fallbackText={[user.first_name, user.last_name].filter(Boolean).join(' ')}
+                                                src={user.avatar_url}
+                                            />
                                             <div>
                                                 <strong>{[user.first_name, user.last_name].filter(Boolean).join(' ') || 'No display name'}</strong>
                                                 <span>{user.email || 'No email set'}</span>

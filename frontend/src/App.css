@@ -298,6 +298,7 @@
 .admin-profile-cell > div > span { margin: 0; color: #9CA3AF; font-size: 11px; line-height: 1.4; }
 .admin-profile-cell > div > .admin-protected { color: #6B7280; }
 .admin-avatar { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(96, 165, 250, 0.28); border-radius: 50%; color: #BFDBFE; background: rgba(59, 130, 246, 0.14); font-size: 11px; font-weight: 750; }
+.admin-avatar:is(img) { object-fit: cover; }
 .admin-profile-cell .admin-profile-edit { width: fit-content; min-height: 25px; margin-top: 2px; padding: 0 7px; color: #93C5FD; font-size: 10px; }
 .admin-profile-edit-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
 .admin-profile-edit-form > label { display: grid; min-width: 150px; flex: 1; gap: 5px; color: #9CA3AF; font-size: 11px; }
@@ -689,6 +690,19 @@
   .admin-search-form { align-items: stretch; flex-direction: column; }
   .dashboard-header { flex-direction: column; }
   .dashboard-header-actions { width: 100%; justify-content: flex-start; }
+
+  .dashboard-profile { display: flex; min-width: 0; align-items: center; gap: 9px; }
+  .dashboard-avatar { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; overflow: hidden; border: 1px solid rgba(96, 165, 250, 0.28); border-radius: 50%; color: #BFDBFE; background: rgba(59, 130, 246, 0.14); font-size: 12px; font-weight: 750; object-fit: cover; }
+  .dashboard-profile-actions { display: grid; gap: 4px; }
+  .dashboard-profile-name { max-width: 130px; overflow: hidden; color: #D1D5DB; font-size: 11px; font-weight: 650; text-overflow: ellipsis; }
+  .dashboard-profile-actions > div { display: flex; align-items: center; gap: 7px; }
+  .dashboard-avatar-upload,
+  .dashboard-avatar-remove { min-height: 24px !important; color: #93C5FD !important; font-size: 10px !important; }
+  .dashboard-avatar-upload { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+  .dashboard-avatar-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+  .dashboard-avatar-upload:focus-within { outline: 2px solid #60A5FA; outline-offset: 3px; }
+  .dashboard-avatar-remove { padding: 0; border: 0; color: #FCA5A5 !important; background: transparent; }
+
   .refresh-status { width: auto; margin-right: auto; }
   .dashboard-summary { grid-template-columns: 1fr; }
   .summary-card { min-height: 66px; padding: 10px 13px; }

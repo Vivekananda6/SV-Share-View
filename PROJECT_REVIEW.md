@@ -47,6 +47,7 @@ single-host; these volumes are not a substitute for off-host backups.
 | Django REST Framework | JSON and multipart API, serializers, validation, viewsets, permission checks, and structured API errors. |
 | SimpleJWT | Access/refresh bearer tokens, extended here with per-account token versions and password-change invalidation. |
 | `cryptography` | AES-256-GCM document encryption/decryption and authenticated ciphertext validation. |
+| Pillow | Validate, orient, resize, and re-encode private profile photos as JPEG. |
 | SQLite | Local development database default. |
 | PostgreSQL / Psycopg | Relational database for the provided Compose deployment. |
 | React / React Router | Sign-in, personal vault, recipient, and administration screens. |
@@ -84,7 +85,16 @@ and self-service password reset are not configured.
 - Review documents shared with the current account; enter a PIN to download.
   Edit recipients can replace the owner's original while the grant is active.
 - View relevant activity and the rolling 24-hour event count.
+- Upload or remove a profile photo; the header and admin user list display the photo, with generated initials as a fallback.
 - Refresh data manually, on window focus, and every 15 seconds while visible.
+
+Profile photos must be JPEG, PNG, or WebP, no larger than 2 MiB or 4096x4096
+pixels. The backend applies EXIF orientation, resizes to at most 512x512,
+re-encodes to JPEG (discarding source metadata), and serves the result only to
+the owner or staff through authenticated API routes. They are not encrypted at
+rest. Photos are kept in
+`MEDIA_ROOT`, so they require persistent media storage on deployments where
+the filesystem is ephemeral.
 
 The visible dashboard's document filters are primarily client-side. The API
 also implements server-side search, owner, category, and date filters for
@@ -132,6 +142,8 @@ Models live in `backend/api/models.py`; schema evolution is captured in
 - `AuditChainState`: chain head.
 - `AuthTokenVersion`: per-account token revocation counter.
 - `UserModeration`: warning count, timeout, note, and staff actor.
+- `UserProfile`: optional private photo and update timestamp; it is created the
+  first time the account uploads a photo.
 
 Use Django migrations for schema changes; do not modify production schema by
 hand.
@@ -225,6 +237,7 @@ unless stated otherwise.
 | --- | --- |
 | `POST /register/`, `/token/`, `/token/refresh/` | Registration, login, refresh. |
 | `GET /account/`, `POST /logout/` | Account summary and global token revocation. |
+| `PATCH, DELETE /account/profile-photo/`, `GET /account/avatar/` | Upload/remove the signed-in user's photo and read it privately. |
 | `/files/` | Owner-scoped list/create/detail/update/delete. |
 | `/files/{id}/download/` | Download owned document. |
 | `/files/{id}/passcode/` | Set/remove owner PIN. |
@@ -242,6 +255,7 @@ unless stated otherwise.
 | `/admin/documents/{id}/download/`, `/replace/` | Staff download/replacement. |
 | `/admin/shares/{id}/action/` | Staff revoke share. |
 | `/admin/users/{id}/action/` | Staff moderation. |
+| `GET /admin/users/{id}/avatar/` | Read a user's profile photo; staff only. |
 | `/admin/` | Django Admin site. |
 
 Object queries are scoped on the server to owner, recipient, or staff authority.
