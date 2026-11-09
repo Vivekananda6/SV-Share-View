@@ -628,7 +628,7 @@ const Dashboard = ({ onLogout }) => {
                                             )}
                                         </form>
 
-                                        <form onSubmit={(e) => handleShare(e, f.id)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_auto] gap-2">
+                                        <form onSubmit={(e) => handleShare(e, f.id)} className="dashboard-share-form grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
                                             <label className="flex flex-col gap-1 text-xs text-slate-400">
                                                 Recipient username
                                                 <input
@@ -669,7 +669,7 @@ const Dashboard = ({ onLogout }) => {
                                             </label>
                                             <button
                                                 type="submit"
-                                                className="self-end flex items-center justify-center gap-2 rounded-lg bg-indigo-500/20 border border-indigo-500/50 px-3 py-2 text-sm text-indigo-200 hover:bg-indigo-500/30"
+                                                className="dashboard-share-submit self-end flex items-center justify-center gap-2 rounded-lg bg-indigo-500/20 border border-indigo-500/50 px-3 py-2 text-sm text-indigo-200 hover:bg-indigo-500/30"
                                             >
                                                 <Share2 size={15} />
                                                 Share

@@ -277,6 +277,8 @@
 
 .admin-table-wrap { overflow-x: auto; border: 1px solid #262930; border-radius: 11px; }
 .admin-table { width: 100%; border-collapse: collapse; text-align: left; }
+.admin-table th { white-space: nowrap; }
+.admin-users-table { min-width: 1120px; }
 .admin-table th { padding: 11px 12px; border-bottom: 1px solid #262930; color: #9CA3AF; background: #14161A; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .admin-table td { padding: 12px; border-bottom: 1px solid #202329; color: #D1D5DB; background: #0B0C0E; font-size: 12px; vertical-align: top; }
 .admin-table tbody tr:nth-child(odd) td { background: #111317; }
@@ -289,9 +291,14 @@
 .admin-table td:first-child .admin-role { display: inline-block; margin: 5px 5px 0 0; color: #93C5FD; }
 .admin-table td .admin-last-note { max-width: 220px; overflow-wrap: anywhere; }
 .admin-profile-cell { display: flex; min-width: 190px; align-items: flex-start; gap: 9px; }
-.admin-profile-cell > div { min-width: 0; }
+.admin-profile-cell > div { display: grid; min-width: 0; gap: 4px; }
+.admin-profile-cell > div > strong,
+.admin-profile-cell > div > span { display: block; overflow-wrap: anywhere; }
+.admin-profile-cell > div > strong { color: #F3F4F6; line-height: 1.4; }
+.admin-profile-cell > div > span { margin: 0; color: #9CA3AF; font-size: 11px; line-height: 1.4; }
+.admin-profile-cell > div > .admin-protected { color: #6B7280; }
 .admin-avatar { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(96, 165, 250, 0.28); border-radius: 50%; color: #BFDBFE; background: rgba(59, 130, 246, 0.14); font-size: 11px; font-weight: 750; }
-.admin-profile-cell .admin-profile-edit { min-height: 25px; margin-top: 6px; padding: 0 7px; color: #93C5FD; font-size: 10px; }
+.admin-profile-cell .admin-profile-edit { width: fit-content; min-height: 25px; margin-top: 2px; padding: 0 7px; color: #93C5FD; font-size: 10px; }
 .admin-profile-edit-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
 .admin-profile-edit-form > label { display: grid; min-width: 150px; flex: 1; gap: 5px; color: #9CA3AF; font-size: 11px; }
 .admin-profile-edit-form input { min-height: 38px; border: 1px solid #30343D; border-radius: 8px; padding: 0 10px; color: #F3F4F6; background: #0F1115; }
@@ -418,6 +425,9 @@
 .dashboard-shared > h2 { display: flex; align-items: center; gap: 8px; }
 .dashboard-shared > div > div,
 .dashboard-shared .bg-white\/5 { border-radius: 13px; }
+.dashboard-share-form { width: 100%; min-width: 0; }
+.dashboard-share-form > label { min-width: 0; overflow-wrap: anywhere; }
+.dashboard-share-submit { min-width: 88px; white-space: nowrap; }
 
 .dashboard-audit .max-h-\[500px\] {
   max-height: min(660px, calc(100vh - 220px));

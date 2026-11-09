@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowLeft, Ban, CheckCircle2, Clock3, LogOut, RefreshCw, Search, Share2, ShieldAlert, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -33,6 +33,7 @@ const AdminDashboard = ({ onLogout }) => {
     const [note, setNote] = useState('');
     const [busyUser, setBusyUser] = useState(null);
     const [busyDocument, setBusyDocument] = useState(null);
+    const moderationNoteRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
@@ -95,6 +96,11 @@ const AdminDashboard = ({ onLogout }) => {
     }, [loadData]);
 
     const handleAction = async (user, action) => {
+        if (action === 'warn' && !note.trim()) {
+            setError('Enter a moderation note before issuing a warning.');
+            moderationNoteRef.current?.focus();
+            return;
+        }
         setBusyUser(user.id);
         setError('');
         setNotice('');
@@ -486,8 +492,9 @@ const AdminDashboard = ({ onLogout }) => {
                 </form>
 
                 <label className="admin-note-field">
-                    Moderation note (optional; required for a warning)
+                    Moderation note (required for a warning; optional otherwise)
                     <input
+                        ref={moderationNoteRef}
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
                         maxLength={500}
@@ -508,7 +515,7 @@ const AdminDashboard = ({ onLogout }) => {
                     <p className="admin-hint">Showing page {overview.users_page} of {overview.users_page_count} matching accounts.</p>
                 )}
                 <div className="admin-table-wrap">
-                    <table className="admin-table">
+                    <table className="admin-table admin-users-table">
                         <thead>
                             <tr>
                                 <th>Account</th>
@@ -589,7 +596,9 @@ const AdminDashboard = ({ onLogout }) => {
                                                 <button type="button" disabled={busyUser === user.id} onClick={() => handleAction(user, 'warn')}>Warn</button>
                                                 {user.is_active ? (
                                                     <>
-                                                        <button type="button" disabled={busyUser === user.id} onClick={() => handleAction(user, 'timeout')}>Timeout {duration}m</button>
+                                                        <button type="button" disabled={busyUser === user.id} onClick={() => handleAction(user, 'timeout')}>
+                                                            Timeout {duration === '60' ? '1 hour' : duration === '1440' ? '24 hours' : duration === '10080' ? '7 days' : '30 days'}
+                                                        </button>
                                                         {user.timed_out && <button type="button" disabled={busyUser === user.id} onClick={() => handleAction(user, 'clear_timeout')}>Clear timeout</button>}
                                                         <button className="danger" type="button" disabled={busyUser === user.id} onClick={() => handleAction(user, 'block')}>Block</button>
                                                     </>
